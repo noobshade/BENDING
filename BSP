@@ -1,0 +1,39 @@
+from github import Github
+import json
+import sqlite3
+import datetime
+
+g = Github("dbd6d709159850e3b76c782065b8636e412a029a")
+repo = g.get_repo("BendingSpoons/katana-swift")
+
+commits = repo.get_commits()
+
+with open('assets/members.json') as f:
+    members = json.load(f)
+
+
+database = "github.db"
+conn = sqlite3.connect(database)
+c = conn.cursor()
+
+for commit in commits:
+
+    if commit.commit.author.date >= datetime.datetime(2018, 6, 25):
+        print("skipping")
+        continue
+
+    if commit.author is None:
+        authorName = "External contribution"
+        is_external = 1
+    else:
+        is_external = 0
+        authorName = commit.author.login
+        for member in members:
+            if member['login'] == commit.author.login:
+                is_external = 1
+                break
+
+    c.execute("INSERT INTO commits VALUES(?, ?, ?, ?, ?)", (commit.sha, commit.commit.author.date, authorName, commit.commit.message, is_external))
+
+conn.commit()
+conn.close()
